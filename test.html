@@ -1,0 +1,130 @@
+<doctype html>
+<html>
+<head>
+<title>ImageProjessJS Tester</title>
+<style>
+</style>
+
+<script type="application/javascript" src="scripts/require.js"></script>
+<script type="application/javascript">
+requirejs([
+    "./scripts/util", "./scripts/vectormath", "./scripts/webgl",
+    "./scripts/simplemesh", "./scripts/ImageProcess"
+], function(util, vectormath, webgl, simplemesh, ImageProcess) {
+"use strict";
+
+let IMAGE_DIMEN = 512;
+    
+function fract(f) {
+    return f - Math.floor(f);
+}
+
+class AppState {
+  constructor() {
+    this.process = new ImageProcess.ImageProcess();
+    this.process.init();
+    
+    this.canvas = document.createElement("canvas");
+    document.body.appendChild(this.canvas);
+    
+    this.g = this.canvas.getContext("2d");
+    this.theimage = this.makeImage();
+    
+    this.step();
+  }
+  
+  step() {
+    console.log("processing. . .");
+    this.image = this.process.image(this.theimage).downsample(3).blur(15).upsample(3).dither_8bit().run(); //downsample(2).blur(15).upsample(2).run();
+    //console.log("image2", this.image.fdata);
+    console.log("done");
+  }
+  
+  makeImage() {
+    let image = new ImageData(IMAGE_DIMEN, IMAGE_DIMEN);
+    let idata = image.data;
+    
+    for (let i=0; i<idata.length; i += 4) {
+        idata[i+3] = 255;
+    }
+    
+    for (let i=0; i<IMAGE_DIMEN*IMAGE_DIMEN; i++) {
+        let ix = i % IMAGE_DIMEN, iy = ~~(i / IMAGE_DIMEN);
+        let x = ix / IMAGE_DIMEN,  y = iy / IMAGE_DIMEN;
+        
+        let idx = i*4;
+        
+        let dx = x-0.5, dy = y-0.5, th = Math.atan2(dy, dx);
+        let len = Math.sqrt(dx*dx + dy*dy);
+        
+        let f = fract((len*5 + th*0.478));
+        
+        //force visible band aliasing
+        let f2 = f*0.01+0.35;
+
+        f += (f2 - f)*(1.0 - Math.pow(1.0-x, 5.0));
+        
+        f *= 255;
+        f2 *= 255;
+        
+        //now, dither aliasing out with noise
+        f += 2.0*(Math.random()-0.5);
+        
+        f = Math.min(Math.max(f, 0.0), 255);
+        idata[idx] = idata[idx+1] = idata[idx+2] = ~~f;
+        idata[idx+3] = 255;
+    }
+    
+    return image;
+  }
+  
+  draw() {
+    //console.log("draw");
+    
+    let canvas = this.canvas, g = this.g;
+    
+    canvas.width = window.innerWidth - 35;
+    canvas.height = window.innerHeight - 35;
+    
+    g.putImageData(this.image, 35, 35);
+    
+    //redraw_all();
+  }
+  
+  on_keydown(e) {
+    console.log(e.keyCode);
+    
+    switch (e.keyCode) {
+        case 68: //dkey
+            this.step();
+            window.redraw_all();
+            break;
+    }
+  }
+}
+
+let animreq = undefined;
+window.redraw_all = function() {
+    if (animreq !== undefined) {
+        return;
+    }
+    
+    animreq = requestAnimationFrame(() => {
+        animreq = undefined;
+        _appstate.draw();
+    });
+}
+
+window.addEventListener("keydown", (e) => {
+  _appstate.on_keydown(e);
+});
+
+window._appstate = new AppState();
+window.redraw_all();
+});
+
+</script>
+</head>
+<body>
+</body>
+</html>
