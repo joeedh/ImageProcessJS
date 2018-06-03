@@ -1,0 +1,1 @@
+A small image processing library built on WebGL.
